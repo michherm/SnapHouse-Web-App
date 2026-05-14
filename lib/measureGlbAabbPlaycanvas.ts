@@ -11,6 +11,7 @@
 
 import * as THREE from "three";
 import { GLTFLoader } from "three/examples/jsm/loaders/GLTFLoader.js";
+import { quaternionFromPlaycanvasEulerDegrees } from "./playcanvasRotation";
 
 export type GlbAabb = {
   minX: number;
@@ -23,8 +24,11 @@ export type GlbAabb = {
 
 const cache = new Map<string, GlbAabb>();
 
+/** Cache-Version erhöhen, wenn Mess-Geometrie (Quaternion) geändert wird. */
+const MEASURE_CACHE_VER = "pc-quat-v1";
+
 function cacheKey(url: string, rx: number, ry: number, rz: number): string {
-  return `${url}|${rx}|${ry}|${rz}`;
+  return `${MEASURE_CACHE_VER}|${url}|${rx}|${ry}|${rz}`;
 }
 
 export function clearGlbMeasureCache(): void {
@@ -49,12 +53,7 @@ export async function measureGlbLikePlaycanvas(
         const root = gltf.scene.clone();
         root.position.set(0, 0, 0);
         root.scale.set(1, 1, 1);
-        root.rotation.order = "XYZ";
-        root.rotation.set(
-          THREE.MathUtils.degToRad(rxDeg),
-          THREE.MathUtils.degToRad(ryDeg),
-          THREE.MathUtils.degToRad(rzDeg),
-        );
+        root.quaternion.copy(quaternionFromPlaycanvasEulerDegrees(rxDeg, ryDeg, rzDeg));
         root.updateMatrixWorld(true);
         const box = new THREE.Box3().setFromObject(root);
         if (!Number.isFinite(box.min.x) || box.isEmpty()) {

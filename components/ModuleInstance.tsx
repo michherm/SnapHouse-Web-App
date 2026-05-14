@@ -4,6 +4,7 @@ import { useMemo } from "react";
 import * as THREE from "three";
 import type { ModuleInstance, PlaycanvasPose } from "@/lib/types";
 import { degToRad, mmToMetres, worldCentreFromInstance } from "@/lib/snap";
+import { quaternionFromPlaycanvasEulerDegrees } from "@/lib/playcanvasRotation";
 import { useGltfScene } from "@/lib/useGltfScene";
 
 type Props = {
@@ -26,16 +27,18 @@ export function ModuleInstance({ instance, selected, onSelect }: Props) {
     return worldCentreFromInstance(instance);
   }, [instance, pose]);
 
-  const rot = useMemo(() => {
+  const quat = useMemo(() => {
     if (pose?.rotationDeg) {
       const r = pose.rotationDeg;
-      return new THREE.Euler(degToRad(r.x), degToRad(r.y), degToRad(r.z), "XYZ");
+      return quaternionFromPlaycanvasEulerDegrees(r.x, r.y, r.z);
     }
-    return new THREE.Euler(
-      degToRad(instance.rotation.x),
-      degToRad(instance.rotation.y),
-      degToRad(instance.rotation.z),
-      "XYZ",
+    return new THREE.Quaternion().setFromEuler(
+      new THREE.Euler(
+        degToRad(instance.rotation.x),
+        degToRad(instance.rotation.y),
+        degToRad(instance.rotation.z),
+        "XYZ",
+      ),
     );
   }, [instance, pose]);
 
@@ -62,7 +65,7 @@ export function ModuleInstance({ instance, selected, onSelect }: Props) {
   return (
     <group
       position={pos}
-      rotation={rot}
+      quaternion={quat}
       scale={useGltf ? gltfScale : boxScale}
       onClick={(e) => {
         e.stopPropagation();
