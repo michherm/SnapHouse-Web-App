@@ -39,23 +39,7 @@ export function ModuleInstance({ instance, selected, onSelect }: Props) {
       return [pm.x, pm.y, pm.z] as [number, number, number];
     }
     return worldCentreFromInstance(instance);
-  }, [
-    instance,
-    pm,
-    pm?.x,
-    pm?.y,
-    pm?.z,
-    instance.floor,
-    instance.gridPosition.x,
-    instance.gridPosition.y,
-    instance.gridPosition.z,
-    instance.position.x,
-    instance.position.y,
-    instance.position.z,
-    w,
-    h,
-    d,
-  ]);
+  }, [instance, pm]);
 
   const quat = useMemo(() => {
     if (
@@ -74,7 +58,7 @@ export function ModuleInstance({ instance, selected, onSelect }: Props) {
         "XYZ",
       ),
     );
-  }, [rd, rd?.x, rd?.y, rd?.z, instance.rotation.x, instance.rotation.y, instance.rotation.z]);
+  }, [instance, rd]);
 
   const url = instance.assetUrl?.match(/\.glb$/i) ? instance.assetUrl : null;
   const { scene: gltfScene, failed, loading } = useGltfScene(url);
