@@ -7,6 +7,7 @@ import type { HouseSettings } from "./houseSettings";
 import { clampHouseToRules } from "./houseSettings";
 import { G42_SEQ_200, G42_SEQ_250, S10_SEQ_250 } from "./playcanvasSequences";
 import { moduleInstancesFromWallChain } from "./spawnWallChainFromPlaycanvas";
+import { wallHeightBandToMm } from "./houseSettings";
 type Store = {
   project: SnapHouseProject;
   selectedInstanceId: string | null;
@@ -152,9 +153,11 @@ export const useProjectStore = create<Store>((set, get) => ({
           ? G42_SEQ_200[span]
           : S10_SEQ_250[span];
     if (!seq?.length) return;
+    const wallMm = wallHeightBandToMm(get().project.house.wallHeights[0] ?? "XL");
     const newMods = moduleInstancesFromWallChain(seq, {
       floor: 0,
       gridPosition: { x: 0, y: 0, z: 0 },
+      wallHeightMm: wallMm,
     });
     set((s) => ({
       project: {

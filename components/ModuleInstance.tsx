@@ -17,13 +17,15 @@ export function ModuleInstance({ instance, selected, onSelect }: Props) {
   const h = instance.parameters.height ?? 2400;
   const d = instance.parameters.depth ?? 300;
   const pos = useMemo(() => worldCentreFromInstance(instance), [instance]);
+  // PlayCanvas: G42-/Dachsegmente nutzen `entity.setEulerAngles(rx, ry, rz)` in Grad, Reihenfolge X→Y→Z
+  // (siehe snaphouse_konfigurator.js nextG42 / spawnG42b — nicht `_spawnAt(rx,ry,0)`).
   const rot = useMemo(
     () =>
       new THREE.Euler(
         degToRad(instance.rotation.x),
         degToRad(instance.rotation.y),
         degToRad(instance.rotation.z),
-        "YXZ",
+        "XYZ",
       ),
     [instance.rotation.x, instance.rotation.y, instance.rotation.z],
   );

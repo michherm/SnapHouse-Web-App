@@ -30,6 +30,9 @@ export function PlaycanvasWallChains() {
       <div style={{ fontSize: 11, opacity: 0.6, lineHeight: 1.4 }}>
         Spannweite: <strong>{span}</strong> (oben unter „Haus“). Ketten = Daten aus{" "}
         <code style={{ fontSize: 10 }}>snaphouse_konfigurator.js</code>.
+        <br />
+        Vertikale Lage der G42-Segmente orientiert sich an <strong>Wandhöhe EG</strong> (wie Plattenoberkante
+        in PlayCanvas).
       </div>
       <button
         type="button"

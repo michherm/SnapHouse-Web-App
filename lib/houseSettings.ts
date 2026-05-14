@@ -30,6 +30,12 @@ export function maxFloorsForSystem(system: HouseSettings["system"]): number {
   return system === "200" ? 1 : 2;
 }
 
+/** Wandhöhe in mm — gleiche Tabelle wie `shg_floorFromPy` / Konfigurator (S/M/L/XL). */
+export function wallHeightBandToMm(band: WallHeightBand | string): number {
+  const m: Record<string, number> = { S: 2100, M: 2400, L: 2700, XL: 3000 };
+  return m[band] ?? 2400;
+}
+
 export function defaultHouseSettings(): HouseSettings {
   return {
     system: "250",
