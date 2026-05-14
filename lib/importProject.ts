@@ -1,5 +1,6 @@
 import type { SnapHouseProject, ModuleInstance } from "./types";
 import { GRID_MM } from "./types";
+import { defaultHouseSettings, mergeHouseFromUnknown } from "./houseSettings";
 
 const SCHEMA_VERSION = "1.0.0";
 
@@ -42,6 +43,7 @@ export function parseProjectJson(text: string): SnapHouseProject {
     version: root.version,
     units: "mm",
     modules,
+    house: mergeHouseFromUnknown(root.house),
   };
 }
 
@@ -52,6 +54,7 @@ export function serializeProject(project: SnapHouseProject): string {
       version: project.version,
       units: project.units,
       modules: project.modules,
+      house: project.house,
     },
     null,
     2,
@@ -64,6 +67,7 @@ export function emptyProject(name: string): SnapHouseProject {
     version: SCHEMA_VERSION,
     units: "mm",
     modules: [],
+    house: defaultHouseSettings(),
   };
 }
 

@@ -1,4 +1,5 @@
 import type { Vector3Tuple } from "three";
+import type { HouseSettings } from "./houseSettings";
 
 /** Millimetres in project JSON (WikiHouse-style 600 mm grid). */
 export const GRID_MM = 600;
@@ -31,6 +32,8 @@ export type SnapHouseProject = {
   version: string;
   units: "mm";
   modules: ModuleInstance[];
+  /** Hausparameter (PlayCanvas `snaphouse_houseState.js`). */
+  house: HouseSettings;
 };
 
 /** Catalogue entry — lazy GLB later; placeholder uses primitive mesh. */

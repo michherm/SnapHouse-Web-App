@@ -29,7 +29,7 @@ export function ModuleInstance({ instance, selected, onSelect }: Props) {
   );
 
   const url = instance.assetUrl?.match(/\.glb$/i) ? instance.assetUrl : null;
-  const { scene: gltfScene, failed } = useGltfScene(url);
+  const { scene: gltfScene, failed, loading } = useGltfScene(url);
 
   const boxScale = useMemo(
     () =>
@@ -46,7 +46,7 @@ export function ModuleInstance({ instance, selected, onSelect }: Props) {
     [instance.scale.x, instance.scale.y, instance.scale.z],
   );
 
-  const useGltf = url && gltfScene && !failed;
+  const useGltf = url && gltfScene && !failed && !loading;
 
   return (
     <group
@@ -64,9 +64,13 @@ export function ModuleInstance({ instance, selected, onSelect }: Props) {
         <mesh castShadow receiveShadow>
           <boxGeometry args={[1, 1, 1]} />
           <meshStandardMaterial
-            color={failed ? "#f97316" : selected ? "#6ee7b7" : "#9ca3af"}
+            color={
+              failed ? "#f97316" : loading ? "#3b82f6" : selected ? "#6ee7b7" : "#9ca3af"
+            }
             metalness={0.05}
             roughness={0.75}
+            emissive={loading ? "#1e3a8a" : "#000000"}
+            emissiveIntensity={loading ? 0.35 : 0}
           />
         </mesh>
       )}

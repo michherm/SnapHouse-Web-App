@@ -3,6 +3,8 @@
 import dynamic from "next/dynamic";
 import { Toolbar } from "@/components/Toolbar";
 import { ProjectControls } from "@/components/ProjectControls";
+import { HouseSettingsPanel } from "@/components/HouseSettingsPanel";
+import { PlaycanvasWallChains } from "@/components/PlaycanvasWallChains";
 
 const Scene = dynamic(() => import("@/components/Scene").then((m) => m.Scene), { ssr: false });
 
@@ -25,7 +27,11 @@ export function Configurator() {
         }}
       >
         <h1 style={{ fontSize: 16, margin: "0 0 12px", fontWeight: 700 }}>SnapHouse</h1>
+        <HouseSettingsPanel />
+        <div style={{ height: 1, background: "#334155", margin: "12px 0" }} />
         <Toolbar />
+        <div style={{ height: 1, background: "#334155", margin: "12px 0" }} />
+        <PlaycanvasWallChains />
       </aside>
       <main style={{ position: "relative", minHeight: 0 }}>
         <Scene />

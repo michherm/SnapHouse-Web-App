@@ -3,8 +3,8 @@ import type { Metadata } from "next";
 import type { ReactNode } from "react";
 
 export const metadata: Metadata = {
-  title: "SnapHouse Web (Migration)",
-  description: "WikiHouse / SnapHouse Konfigurator — Next.js + R3F Meilenstein 1",
+  title: "SnapHouse Konfigurator",
+  description: "WikiHouse / SnapHouse — Web-Konfigurator (Next.js + R3F)",
 };
 
 export default function RootLayout({ children }: { children: ReactNode }) {

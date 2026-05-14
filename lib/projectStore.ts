@@ -3,20 +3,26 @@ import type { ModuleInstance, SnapHouseProject } from "./types";
 import { getModuleDefinition } from "./modules";
 import { emptyProject, newInstanceId, normalizeModule, parseProjectJson } from "./importProject";
 import { snapVec3Mm } from "./snap";
-
+import type { HouseSettings } from "./houseSettings";
+import { clampHouseToRules } from "./houseSettings";
+import { G42_SEQ_200, G42_SEQ_250, S10_SEQ_250 } from "./playcanvasSequences";
+import { moduleInstancesFromWallChain } from "./spawnWallChainFromPlaycanvas";
 type Store = {
   project: SnapHouseProject;
   selectedInstanceId: string | null;
   setProjectName: (name: string) => void;
+  setHouse: (patch: Partial<HouseSettings>) => void;
   selectInstance: (id: string | null) => void;
   addModule: (moduleId: string) => void;
+  duplicateSelected: () => void;
   removeSelected: () => void;
   rotateSelectedY90: () => void;
   moveSelectedToGrid: (ix: number, iz: number) => void;
+  /** Wandkette aus PlayCanvas-Katalog (`snaphouse_konfigurator.js`), Spannenweite = aktuelles `house.span`. */
+  spawnPlaycanvasWallChain: (kind: "g42_250" | "s10_250" | "g42_200") => void;
   importFromJsonText: (text: string) => void;
   clearAll: () => void;
 };
-
 function defaultInstance(moduleId: string): ModuleInstance | null {
   const def = getModuleDefinition(moduleId);
   if (!def) return null;
@@ -48,8 +54,15 @@ export const useProjectStore = create<Store>((set, get) => ({
       project: { ...s.project, projectName: name },
     })),
 
-  selectInstance: (id) => set({ selectedInstanceId: id }),
+  setHouse: (patch) =>
+    set((s) => ({
+      project: {
+        ...s.project,
+        house: clampHouseToRules({ ...s.project.house, ...patch }),
+      },
+    })),
 
+  selectInstance: (id) => set({ selectedInstanceId: id }),
   addModule: (moduleId) => {
     const inst = defaultInstance(moduleId);
     if (!inst) return;
@@ -57,6 +70,26 @@ export const useProjectStore = create<Store>((set, get) => ({
       project: { ...s.project, modules: [...s.project.modules, inst] },
       selectedInstanceId: inst.instanceId,
     }));
+  },
+
+  duplicateSelected: () => {
+    const id = get().selectedInstanceId;
+    if (!id) return;
+    const { project } = get();
+    const original = project.modules.find((m) => m.instanceId === id);
+    if (!original) return;
+    const copy = normalizeModule({
+      ...original,
+      instanceId: newInstanceId(),
+      gridPosition: {
+        ...original.gridPosition,
+        x: original.gridPosition.x + 1,
+      },
+    });
+    set({
+      project: { ...project, modules: [...project.modules, copy] },
+      selectedInstanceId: copy.instanceId,
+    });
   },
 
   removeSelected: () => {
@@ -109,15 +142,39 @@ export const useProjectStore = create<Store>((set, get) => ({
     }));
   },
 
-  importFromJsonText: (text) => {
-    const parsed = parseProjectJson(text);
-    const normalized: SnapHouseProject = {
-      ...parsed,
-      modules: parsed.modules.map((m) => normalizeModule(m)),
-    };
-    set({ project: normalized, selectedInstanceId: null });
+  spawnPlaycanvasWallChain: (kind) => {
+    const { project } = get();
+    const span = project.house.span;
+    const seq =
+      kind === "g42_250"
+        ? G42_SEQ_250[span]
+        : kind === "g42_200"
+          ? G42_SEQ_200[span]
+          : S10_SEQ_250[span];
+    if (!seq?.length) return;
+    const newMods = moduleInstancesFromWallChain(seq, {
+      floor: 0,
+      gridPosition: { x: 0, y: 0, z: 0 },
+    });
+    set((s) => ({
+      project: {
+        ...s.project,
+        modules: [...s.project.modules, ...newMods],
+      },
+      selectedInstanceId: newMods[newMods.length - 1]?.instanceId ?? null,
+    }));
   },
 
+  importFromJsonText: (text) => {
+    const parsed = parseProjectJson(text);
+    set({
+      project: {
+        ...parsed,
+        modules: parsed.modules.map((m) => normalizeModule(m)),
+      },
+      selectedInstanceId: null,
+    });
+  },
   clearAll: () =>
     set({
       project: emptyProject(get().project.projectName || "SnapHouse Neuprojekt"),

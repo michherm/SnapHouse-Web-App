@@ -26,6 +26,10 @@ export function ProjectControls() {
         Module: <strong>{project.modules.length}</strong>
         <br />
         Schema: {project.version} · {project.units}
+        <br />
+        Haus: {project.house.system} / Spannweite {project.house.span} · {project.house.floors} Geschoss
+        <br />
+        Dach: {project.house.roofType}
       </div>
       <button type="button" style={btnPrimary} onClick={() => downloadProjectJson(project)}>
         JSON herunterladen

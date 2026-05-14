@@ -7,7 +7,9 @@ import { useProjectStore } from "@/lib/projectStore";
 export function Toolbar() {
   const addModule = useProjectStore((s) => s.addModule);
   const rotate = useProjectStore((s) => s.rotateSelectedY90);
+  const duplicate = useProjectStore((s) => s.duplicateSelected);
   const remove = useProjectStore((s) => s.removeSelected);
+  const selectInstance = useProjectStore((s) => s.selectInstance);
   const selected = useProjectStore((s) => s.selectedInstanceId);
 
   return (
@@ -25,6 +27,12 @@ export function Toolbar() {
       ))}
       <div style={{ height: 1, background: "#334155", margin: "8px 0" }} />
       <div style={{ fontSize: 12, opacity: 0.75 }}>Auswahl</div>
+      <button type="button" style={btnStyle} disabled={!selected} onClick={() => selectInstance(null)}>
+        Auswahl aufheben
+      </button>
+      <button type="button" style={btnStyle} disabled={!selected} onClick={() => duplicate()}>
+        Modul duplizieren (+1 Raster X)
+      </button>
       <button type="button" style={btnStyle} disabled={!selected} onClick={() => rotate()}>
         Drehen +90° (Y)
       </button>
@@ -32,7 +40,7 @@ export function Toolbar() {
         Modul löschen
       </button>
       <p style={{ fontSize: 11, lineHeight: 1.45, opacity: 0.65, margin: "12px 0 0" }}>
-        Boden anklicken: gewähltes Modul auf 60-cm-Raster setzen.
+        Boden anklicken: gewähltes Modul auf 60-cm-Raster setzen. Blauer Kasten: GLB wird geladen.
       </p>
     </div>
   );

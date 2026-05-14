@@ -2,6 +2,19 @@
   "projectName": "SnapHouse Vorlage 01",
   "version": "1.0.0",
   "units": "mm",
+  "house": {
+    "system": "250",
+    "span": "M",
+    "floors": 1,
+    "wallHeights": ["XL", "XL", "XL"],
+    "roofType": "saddle",
+    "slopeDirection": "vorne",
+    "wallHPult": 0,
+    "lengthModules": 8,
+    "includeBaseFloor": true,
+    "materialMode": "osb",
+    "language": "de"
+  },
   "modules": [
     {
       "instanceId": "mod_001",
