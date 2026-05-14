@@ -40,6 +40,8 @@ export function ModuleInstance({ instance, selected, onSelect }: Props) {
     }
     return worldCentreFromInstance(instance);
   }, [
+    instance,
+    pm,
     pm?.x,
     pm?.y,
     pm?.z,
@@ -72,7 +74,7 @@ export function ModuleInstance({ instance, selected, onSelect }: Props) {
         "XYZ",
       ),
     );
-  }, [rd?.x, rd?.y, rd?.z, instance.rotation.x, instance.rotation.y, instance.rotation.z]);
+  }, [rd, rd?.x, rd?.y, rd?.z, instance.rotation.x, instance.rotation.y, instance.rotation.z]);
 
   const url = instance.assetUrl?.match(/\.glb$/i) ? instance.assetUrl : null;
   const { scene: gltfScene, failed, loading } = useGltfScene(url);
@@ -111,18 +113,19 @@ export function ModuleInstance({ instance, selected, onSelect }: Props) {
     g.scale.set(s.x, s.y, s.z);
   }, [pos, quat, useGltf, gltfScale, boxScale, tcDragging]);
 
-  const onTcDraggingChanged = useCallback(
-    (ev: { value: boolean }) => {
-      if (!ev.value && groupRef.current) {
-        const g = groupRef.current;
-        const positionM = { x: g.position.x, y: g.position.y, z: g.position.z };
-        const rotationDeg = eulerDegXYZFromQuaternion(g.quaternion);
-        commitModuleTransform(instance.instanceId, { positionM, rotationDeg });
-      }
-      setTcDragging(ev.value);
-    },
-    [instance.instanceId, commitModuleTransform],
-  );
+  const onTcMouseDown = useCallback(() => {
+    setTcDragging(true);
+  }, []);
+
+  const onTcMouseUp = useCallback(() => {
+    if (groupRef.current) {
+      const g = groupRef.current;
+      const positionM = { x: g.position.x, y: g.position.y, z: g.position.z };
+      const rotationDeg = eulerDegXYZFromQuaternion(g.quaternion);
+      commitModuleTransform(instance.instanceId, { positionM, rotationDeg });
+    }
+    setTcDragging(false);
+  }, [instance.instanceId, commitModuleTransform]);
 
   return (
     <>
@@ -155,7 +158,8 @@ export function ModuleInstance({ instance, selected, onSelect }: Props) {
           object={groupRef as MutableRefObject<THREE.Object3D>}
           mode={transformMode}
           size={0.65}
-          onDraggingChanged={onTcDraggingChanged}
+          onMouseDown={onTcMouseDown}
+          onMouseUp={onTcMouseUp}
         />
       ) : null}
     </>
