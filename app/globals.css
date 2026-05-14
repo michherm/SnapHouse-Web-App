@@ -1,0 +1,15 @@
+* {
+  box-sizing: border-box;
+}
+html,
+body {
+  margin: 0;
+  height: 100%;
+  font-family: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+  background: #0f1114;
+  color: #e8eaed;
+}
+#__next,
+body > div {
+  height: 100%;
+}

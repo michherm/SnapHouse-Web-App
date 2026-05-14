@@ -1,0 +1,39 @@
+{
+  "projectName": "SnapHouse Vorlage 01",
+  "version": "1.0.0",
+  "units": "mm",
+  "modules": [
+    {
+      "instanceId": "mod_001",
+      "moduleId": "wall_060_standard",
+      "assetUrl": "/modules/SKYLARK250_Export_GLB/GLB/SKYLARK250_WALL_M.glb",
+      "position": { "x": 0, "y": 0, "z": 0 },
+      "rotation": { "x": 0, "y": 0, "z": 0 },
+      "scale": { "x": 1, "y": 1, "z": 1 },
+      "floor": 0,
+      "gridPosition": { "x": 0, "y": 0, "z": 0 },
+      "parameters": {
+        "width": 600,
+        "height": 2400,
+        "depth": 300
+      },
+      "moduleVersion": "1.0.0"
+    },
+    {
+      "instanceId": "mod_002",
+      "moduleId": "wall_060_standard",
+      "assetUrl": "/modules/SKYLARK250_Export_GLB/GLB/SKYLARK250_WALL_M.glb",
+      "position": { "x": 0, "y": 0, "z": 0 },
+      "rotation": { "x": 0, "y": 90, "z": 0 },
+      "scale": { "x": 1, "y": 1, "z": 1 },
+      "floor": 0,
+      "gridPosition": { "x": 2, "y": 0, "z": 1 },
+      "parameters": {
+        "width": 600,
+        "height": 2400,
+        "depth": 300
+      },
+      "moduleVersion": "1.0.0"
+    }
+  ]
+}
