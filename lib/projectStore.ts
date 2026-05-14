@@ -8,12 +8,14 @@ import { clampHouseToRules } from "./houseSettings";
 import { G42_SEQ_200, G42_SEQ_250, S10_SEQ_250 } from "./playcanvasSequences";
 import { moduleInstancesFromWallChain } from "./spawnWallChainFromPlaycanvas";
 import { wallHeightBandToMm } from "./houseSettings";
-import { buildHouseFromHouseSettings } from "./buildHousePlaycanvas";
+import { buildHouseFromHouseSettingsAsync } from "./buildHousePlaycanvas";
 
 type Store = {
   project: SnapHouseProject;
   selectedInstanceId: string | null;
-  /** Nach „Haus bauen“: Meldungen / Hinweise (z. B. synthetische Bounds). */
+  /** Während GLB-Messung + Montage (async). */
+  houseBuilding: boolean;
+  /** Nach „Haus bauen“: Meldungen / Hinweise. */
   houseBuildMessages: string[];
   setProjectName: (name: string) => void;
   setHouse: (patch: Partial<HouseSettings>) => void;
@@ -25,8 +27,8 @@ type Store = {
   moveSelectedToGrid: (ix: number, iz: number) => void;
   /** Wandkette aus PlayCanvas-Katalog (`snaphouse_konfigurator.js`), Spannenweite = aktuelles `house.span`. */
   spawnPlaycanvasWallChain: (kind: "g42_250" | "s10_250" | "g42_200") => void;
-  /** Ersetzt alle Module durch den synchronen Nachbau von `_rebuildInner` (PlayCanvas-Regeln). */
-  buildPlaycanvasHouse: () => void;
+  /** Ersetzt alle Module: GLBs messen wie `_meas`, dann `_rebuildInner` (Satteldach, EG). */
+  buildPlaycanvasHouse: () => Promise<void>;
   importFromJsonText: (text: string) => void;
   clearAll: () => void;
 };
@@ -55,6 +57,7 @@ function defaultInstance(moduleId: string): ModuleInstance | null {
 export const useProjectStore = create<Store>((set, get) => ({
   project: emptyProject("SnapHouse Neuprojekt"),
   selectedInstanceId: null,
+  houseBuilding: false,
   houseBuildMessages: [],
 
   setProjectName: (name) =>
@@ -175,18 +178,23 @@ export const useProjectStore = create<Store>((set, get) => ({
     }));
   },
 
-  buildPlaycanvasHouse: () => {
+  buildPlaycanvasHouse: async () => {
     const { project } = get();
-    const { ok, modules, warnings } = buildHouseFromHouseSettings(project.house);
-    if (!ok) {
-      set({ houseBuildMessages: warnings });
-      return;
+    set({ houseBuilding: true, houseBuildMessages: [] });
+    try {
+      const { ok, modules, warnings } = await buildHouseFromHouseSettingsAsync(project.house);
+      if (!ok) {
+        set({ houseBuildMessages: warnings });
+        return;
+      }
+      set({
+        project: { ...project, modules },
+        selectedInstanceId: null,
+        houseBuildMessages: warnings,
+      });
+    } finally {
+      set({ houseBuilding: false });
     }
-    set({
-      project: { ...project, modules },
-      selectedInstanceId: null,
-      houseBuildMessages: warnings,
-    });
   },
 
   importFromJsonText: (text) => {
@@ -198,6 +206,7 @@ export const useProjectStore = create<Store>((set, get) => ({
       },
       selectedInstanceId: null,
       houseBuildMessages: [],
+      houseBuilding: false,
     });
   },
   clearAll: () =>
@@ -205,5 +214,6 @@ export const useProjectStore = create<Store>((set, get) => ({
       project: emptyProject(get().project.projectName || "SnapHouse Neuprojekt"),
       selectedInstanceId: null,
       houseBuildMessages: [],
+      houseBuilding: false,
     }),
 }));

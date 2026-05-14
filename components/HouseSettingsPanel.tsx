@@ -22,6 +22,7 @@ export function HouseSettingsPanel() {
   const setHouse = useProjectStore((s) => s.setHouse);
   const buildPlaycanvasHouse = useProjectStore((s) => s.buildPlaycanvasHouse);
   const houseBuildMessages = useProjectStore((s) => s.houseBuildMessages);
+  const houseBuilding = useProjectStore((s) => s.houseBuilding);
   const maxF = maxFloorsForSystem(house.system);
   const spans = SPANS_BY_SYSTEM[house.system];
 
@@ -150,17 +151,19 @@ export function HouseSettingsPanel() {
 
       <button
         type="button"
-        onClick={() => buildPlaycanvasHouse()}
+        disabled={houseBuilding}
+        onClick={() => void buildPlaycanvasHouse()}
         style={{
           ...inputStyle,
-          cursor: "pointer",
+          cursor: houseBuilding ? "wait" : "pointer",
           fontWeight: 600,
           border: "1px solid #22c55e",
-          background: "#14532d",
+          background: houseBuilding ? "#1e3a2f" : "#14532d",
           color: "#ecfdf5",
+          opacity: houseBuilding ? 0.75 : 1,
         }}
       >
-        Haus bauen
+        {houseBuilding ? "Messe GLBs & baue…" : "Haus bauen"}
       </button>
 
       {houseBuildMessages.length > 0 ? (
@@ -182,9 +185,9 @@ export function HouseSettingsPanel() {
       ) : null}
 
       <p style={{ fontSize: 10, lineHeight: 1.4, opacity: 0.55, margin: 0 }}>
-        „Haus bauen“ ersetzt alle Module durch den Nachbau der PlayCanvas-Regeln aus `_rebuildInner` (Satteldach,
-        G42, Wände). Flachdach- und Pult-Zweige sind dort noch nicht vollständig portiert — siehe Meldung nach Klick.
-        Wandketten-Buttons nutzen weiterhin nur die Katalogdaten.
+        „Haus bauen“ lädt die GLBs, misst Bounding-Boxen wie PlayCanvas `_meas`, und setzt Boden, Enden, Wände, G42
+        und Satteldach wie `_rebuildInner` (u. a. fD aus dem Boden-GLB, nicht aus der Länge in X). Beim ersten Klick
+        kann es kurz dauern (Downloads). Flachdach/Pult: noch nicht portiert.
       </p>
     </div>
   );

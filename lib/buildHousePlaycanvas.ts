@@ -1,18 +1,12 @@
 /**
- * Synchroner Nachbau der PlayCanvas-Logik aus `WHKonf.prototype._rebuildInner`
- * (snaphouse_konfigurator.js, ab Zeile ~1277).
+ * Nachbau von `WHKonf.prototype._rebuildInner` (snaphouse_konfigurator.js, ab ~1277).
  *
- * **Gleiche Regeln wie dort:**
- * - FLOOR_Y / END_W je System (250 vs 200)
- * - PLATFORMS_* + WALL_DATA für Dateinamen
- * - Bodenfliesen: `_spawnAt(fa,-90,0, xOff-fm.minX+i*fW, -fm.minY, -fm.minZ)`
- * - Enden, Ecken (cDefs), Wände (Süd/Nord, West/Ost), `syncBuildRefs`-Werte für wPX/wPX2
- * - G42: `nextG42` + `spawnG42b` mit exakt denselben Euler-Formeln
- * - Satteldach: Doppelreihe `setEulerAngles(270,270+dry,0)` / `(270,90+dry,0)` mit `_off`
+ * **Wichtig:** `fD` und `totalW` kommen **nur** aus den gemessenen Boden-Bounds wie in PlayCanvas:
+ * `var fW = fm.maxX - fm.minX, fD = fm.maxZ - fm.minZ, totalW = fW * nFloor` (Zeile 1331).
+ * Eine synthetische fD aus `nFloor * Wandtiefe` war falsch und hat das Haus „explodieren“ lassen.
  *
- * **Abweichung zu PlayCanvas:** PlayCanvas misst GLB-Bounding-Boxes zur Laufzeit (`_meas`).
- * Hier nutzen wir **fest codierte AABB** (`SYNTH_BOUNDS`), die zu den 600-mm-Rastern und
- * typischen Skylark-GLBs passen — bitte bei Abweichungen anpassen (oder später GLB-Messung).
+ * Alle übrigen Offsets (`wm`, `wcm`, Ecken, …) stammen aus **GLB-Messung** wie `_meas`
+ * (Euler in Grad, Reihenfolge XYZ — gleiche Konvention wie `ModuleInstance`).
  */
 
 import type { ModuleInstance } from "./types";
@@ -22,24 +16,10 @@ import { newInstanceId, normalizeModule } from "./importProject";
 import { glb200, glb250 } from "./modulePaths";
 import { PLATFORMS_200, PLATFORMS_250, WALL_DATA } from "./playcanvasPlatformsCatalog";
 import { G42_SEQ_200, G42_SEQ_250, type WallChainEntry } from "./playcanvasSequences";
+import type { GlbAabb } from "./measureGlbAabbPlaycanvas";
+import { measureGlbLikePlaycanvas } from "./measureGlbAabbPlaycanvas";
 
-/** Bounding-Box in Metern (PlayCanvas: min/max aus Mesh). */
-type BBox = { minX: number; maxX: number; minY: number; maxY: number; minZ: number; maxZ: number };
-
-/**
- * Synthetische Bounds — gleiche Nutzung wie `fm`, `wm`, `wcm` in `_rebuildInner`.
- * Wandhöhe wird über `wallH_m` für die vertikale Ausdehnung der Wand-/Ecken-GLBs gesetzt.
- */
-function synthBounds(wallH_m: number): { fm: BBox; wm: BBox; wcm: BBox; cm: BBox; em: BBox } {
-  const w = 0.6;
-  const d = 0.6;
-  const fm: BBox = { minX: 0, maxX: w, minY: -0.02, maxY: 0, minZ: 0, maxZ: 0 };
-  const wm: BBox = { minX: -w, maxX: 0, minY: -wallH_m, maxY: 0, minZ: -d / 2, maxZ: d / 2 };
-  const wcm: BBox = { minX: 0, maxX: w, minY: -wallH_m, maxY: 0, minZ: -d / 2, maxZ: d / 2 };
-  const cm: BBox = { minX: -w, maxX: 0, minY: -wallH_m, maxY: 0, minZ: -d / 2, maxZ: d / 2 };
-  const em: BBox = { minX: -w, maxX: 0, minY: -0.12, maxY: 0, minZ: -d / 2, maxZ: d / 2 };
-  return { fm, wm, wcm, cm, em };
-}
+type BBox = GlbAabb;
 
 function urlFor(sys: "250" | "200", file: string): string {
   return file.includes("SKYLARK200") ? glb200(file) : glb250(file);
@@ -80,7 +60,6 @@ function spawnAt(
   });
 }
 
-/** Wie `nextG42` / `spawnG42b`: volle Euler in Grad. */
 function spawnG42Piece(
   sys: "250" | "200",
   file: string,
@@ -156,24 +135,36 @@ export type BuildHouseResult = {
   warnings: string[];
 };
 
+type RebuildBoxes = {
+  fm: BBox;
+  em: BBox;
+  em2: BBox;
+  c90: BBox;
+  c0: BBox;
+  c270: BBox;
+  c180: BBox;
+  wm: BBox;
+  wbm: BBox;
+  wcm: BBox;
+};
+
+function cornerBoxForRy(m: RebuildBoxes, ry: number): BBox {
+  if (ry === 90) return m.c90;
+  if (ry === 0) return m.c0;
+  if (ry === 270) return m.c270;
+  return m.c180;
+}
+
 /**
- * EG + Satteldach + G42 wie `_rebuildInner` (eine Etage, kein `spawnUpperFloors`-OG-Loop).
- * `flat` / `flat1` / `flat10` / mehrere Geschosse: Hinweis in `warnings`.
+ * Synchrone Montage — nur aufrufen, wenn alle Boxen wie `_meas` vorliegen.
+ * Entspricht dem Satteldach-EG-Zweig in `_rebuildInner` bis `spawnRoof` (ohne OG-Loop).
  */
-export function buildHouseFromHouseSettings(house: HouseSettings): BuildHouseResult {
+function assembleHouseFromMeasuredBoxes(house: HouseSettings, bx: RebuildBoxes): BuildHouseResult {
   const warnings: string[] = [];
   if (house.floors > 1) {
     warnings.push(
       "Hinweis: Mehrgeschoss-Bau (spawnUpperFloors) ist in PlayCanvas umfangreich — hier aktuell nur EG wie bei _etagen===1.",
     );
-  }
-  if (house.roofType === "flat10") {
-    warnings.push("Hinweis: Pultdach flat10 (spawnPultWalls) folgt in einem späteren Schritt — aktuell nicht gebaut.");
-    return { ok: false, modules: [], warnings };
-  }
-  if (house.roofType === "flat" || house.roofType === "flat1") {
-    warnings.push("Hinweis: Flachdach-Zweig (spawnRoof flat) noch nicht vollständig portiert.");
-    return { ok: false, modules: [], warnings };
   }
 
   const sys = house.system;
@@ -189,17 +180,17 @@ export function buildHouseFromHouseSettings(house: HouseSettings): BuildHouseRes
   const wallDat = WALL_DATA[sys][band] ?? WALL_DATA[sys].XL;
   const wallH_m = wallHeightBandToMm(band) / 1000;
   const wallH_mm = Math.round(wallHeightBandToMm(band));
-  /** Nur für Platzhalter-Bounding — echte GLBs skalieren 1:1. */
   const floorSlabMm = 80;
   const endPieceMm = 120;
-  const { fm, wm, wcm, cm, em } = synthBounds(wallH_m);
 
-  const nFloor = Math.max(1, Math.min(32, house.lengthModules));
-  const xOff = 0;
+  const { fm, em, em2, wm, wbm, wcm } = bx;
+
+  /** Exakt wie PlayCanvas Zeile 1331 — nicht aus Wänden ableiten. */
   const fW = fm.maxX - fm.minX;
-  const fD = 2 * END_W + nFloor * (wm.maxZ - wm.minZ);
-  fm.maxZ = fD;
+  const fD = fm.maxZ - fm.minZ;
+  const nFloor = Math.max(1, Math.min(32, house.lengthModules));
   const totalW = fW * nFloor;
+  const xOff = 0;
 
   const out: ModuleInstance[] = [];
   let idx = 0;
@@ -230,9 +221,9 @@ export function buildHouseFromHouseSettings(house: HouseSettings): BuildHouseRes
         plat.end,
         -90,
         180,
-        xOff + totalW - em.minX,
-        -em.minY,
-        -em.minZ,
+        xOff + totalW - em2.minX,
+        -em2.minY,
+        -em2.minZ,
         next(),
         endPieceMm,
       ),
@@ -247,6 +238,7 @@ export function buildHouseFromHouseSettings(house: HouseSettings): BuildHouseRes
   ];
   const cornerFile = wallDat.corner;
   for (const cd of cDefs) {
+    const cm = cornerBoxForRy(bx, cd.ry);
     out.push(
       spawnAt(
         sys,
@@ -280,6 +272,9 @@ export function buildHouseFromHouseSettings(house: HouseSettings): BuildHouseRes
       ),
     );
   }
+
+  const wD2 = wbm.maxZ - wbm.minZ;
+  const wPY2 = FLOOR_Y - wbm.minY;
   for (let i = 0; i < nWalls; i++) {
     out.push(
       spawnAt(
@@ -287,9 +282,9 @@ export function buildHouseFromHouseSettings(house: HouseSettings): BuildHouseRes
         wallDat.wall,
         90,
         270,
-        xOff + totalW - wm.minX,
-        wPY,
-        END_W - wm.minZ + i * wD,
+        xOff + totalW - wbm.minX,
+        wPY2,
+        END_W - wbm.minZ + i * wD2,
         next(),
         wallH_mm,
       ),
@@ -400,7 +395,74 @@ export function buildHouseFromHouseSettings(house: HouseSettings): BuildHouseRes
   }
 
   warnings.push(
-    `Gebaut: System ${sys}, Span ${house.span}, ${nFloor}×600 mm, Satteldach, Wandhöhe ${band} (~${wallH_m.toFixed(2)} m). GLB-Bounds sind synthetisch — bei Abweichung zu PlayCanvas Messpunkte nachziehen.`,
+    `Gebaut (GLB-Messung wie _meas): System ${sys}, Span ${house.span}, ${nFloor} Bodenmodule × fW≈${fW.toFixed(3)} m, fD≈${fD.toFixed(3)} m, Wandhöhe ${band} (~${wallH_m.toFixed(2)} m).`,
   );
   return { ok: true, modules: out, warnings };
+}
+
+async function loadRebuildMeasurements(house: HouseSettings): Promise<RebuildBoxes> {
+  const sys = house.system;
+  const plat = sys === "200" ? PLATFORMS_200[house.span] : PLATFORMS_250[house.span];
+  const band = (house.wallHeights[0] ?? "XL") as WallHeightBand;
+  const wallDat = WALL_DATA[sys][band] ?? WALL_DATA[sys].XL;
+
+  const floorUrl = urlFor(sys, plat.floor);
+  const endUrl = urlFor(sys, plat.end);
+  const cornerUrl = urlFor(sys, wallDat.corner);
+  const wallUrl = urlFor(sys, wallDat.wall);
+
+  const [fm, em, em2, c90, c0, c270, c180, wm, wbm, wcm] = await Promise.all([
+    measureGlbLikePlaycanvas(floorUrl, -90, 0),
+    measureGlbLikePlaycanvas(endUrl, -90, 0),
+    measureGlbLikePlaycanvas(endUrl, -90, 180),
+    measureGlbLikePlaycanvas(cornerUrl, 90, 90),
+    measureGlbLikePlaycanvas(cornerUrl, 90, 0),
+    measureGlbLikePlaycanvas(cornerUrl, 90, 270),
+    measureGlbLikePlaycanvas(cornerUrl, 90, 180),
+    measureGlbLikePlaycanvas(wallUrl, 90, 90),
+    measureGlbLikePlaycanvas(wallUrl, 90, 270),
+    measureGlbLikePlaycanvas(wallUrl, 90, 0),
+  ]);
+
+  return { fm, em, em2, c90, c0, c270, c180, wm, wbm, wcm };
+}
+
+/**
+ * Lädt die GLBs, misst AABB wie `_meas`, baut dann wie `_rebuildInner` (Satteldach, EG).
+ */
+export async function buildHouseFromHouseSettingsAsync(house: HouseSettings): Promise<BuildHouseResult> {
+  const warnings: string[] = [];
+  if (house.roofType === "flat10") {
+    warnings.push("Hinweis: Pultdach flat10 (spawnPultWalls) noch nicht portiert.");
+    return { ok: false, modules: [], warnings };
+  }
+  if (house.roofType === "flat" || house.roofType === "flat1") {
+    warnings.push("Hinweis: Flachdach-Zweig noch nicht portiert.");
+    return { ok: false, modules: [], warnings };
+  }
+
+  const sys = house.system;
+  const plat = sys === "200" ? PLATFORMS_200[house.span] : PLATFORMS_250[house.span];
+  if (!plat) {
+    return { ok: false, modules: [], warnings: [`Unbekannte Spannweite „${house.span}“ für System ${sys}.`] };
+  }
+
+  try {
+    const bx = await loadRebuildMeasurements(house);
+    const built = assembleHouseFromMeasuredBoxes(house, bx);
+    return {
+      ok: built.ok,
+      modules: built.modules,
+      warnings: [...warnings, ...built.warnings],
+    };
+  } catch (e) {
+    const msg = e instanceof Error ? e.message : String(e);
+    return {
+      ok: false,
+      modules: [],
+      warnings: [
+        `GLB-Messung fehlgeschlagen (URLs unter /modules/… prüfen, Netzwerk/CORS): ${msg}`,
+      ],
+    };
+  }
 }
