@@ -3,6 +3,7 @@
 import { useMemo } from "react";
 import * as THREE from "three";
 import type { ModuleInstance, PlaycanvasPose } from "@/lib/types";
+import { degToRad, mmToMetres, worldCentreFromInstance } from "@/lib/snap";
 import { useGltfScene } from "@/lib/useGltfScene";
 
 type Props = {
