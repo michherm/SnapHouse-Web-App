@@ -20,6 +20,8 @@ const bands: WallHeightBand[] = ["S", "M", "L", "XL"];
 export function HouseSettingsPanel() {
   const house = useProjectStore((s) => s.project.house);
   const setHouse = useProjectStore((s) => s.setHouse);
+  const buildPlaycanvasHouse = useProjectStore((s) => s.buildPlaycanvasHouse);
+  const houseBuildMessages = useProjectStore((s) => s.houseBuildMessages);
   const maxF = maxFloorsForSystem(house.system);
   const spans = SPANS_BY_SYSTEM[house.system];
 
@@ -146,9 +148,43 @@ export function HouseSettingsPanel() {
         <span>EG-Boden / END (wie PlayCanvas)</span>
       </label>
 
+      <button
+        type="button"
+        onClick={() => buildPlaycanvasHouse()}
+        style={{
+          ...inputStyle,
+          cursor: "pointer",
+          fontWeight: 600,
+          border: "1px solid #22c55e",
+          background: "#14532d",
+          color: "#ecfdf5",
+        }}
+      >
+        Haus bauen
+      </button>
+
+      {houseBuildMessages.length > 0 ? (
+        <div
+          role="status"
+          style={{
+            fontSize: 11,
+            lineHeight: 1.45,
+            padding: "8px 10px",
+            borderRadius: 8,
+            background: "#1e293b",
+            border: "1px solid #334155",
+            color: "#cbd5e1",
+            whiteSpace: "pre-wrap",
+          }}
+        >
+          {houseBuildMessages.join("\n")}
+        </div>
+      ) : null}
+
       <p style={{ fontSize: 10, lineHeight: 1.4, opacity: 0.55, margin: 0 }}>
-        Werte werden im JSON mit exportiert. Vollständiger Haus-Autobau (WHKonf.build) ist noch offen —
-        Wandketten nutzen bereits die Katalogdaten aus dem PlayCanvas-Skript.
+        „Haus bauen“ ersetzt alle Module durch den Nachbau der PlayCanvas-Regeln aus `_rebuildInner` (Satteldach,
+        G42, Wände). Flachdach- und Pult-Zweige sind dort noch nicht vollständig portiert — siehe Meldung nach Klick.
+        Wandketten-Buttons nutzen weiterhin nur die Katalogdaten.
       </p>
     </div>
   );

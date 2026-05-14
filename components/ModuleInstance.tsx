@@ -2,8 +2,7 @@
 
 import { useMemo } from "react";
 import * as THREE from "three";
-import type { ModuleInstance } from "@/lib/types";
-import { degToRad, mmToMetres, worldCentreFromInstance } from "@/lib/snap";
+import type { ModuleInstance, PlaycanvasPose } from "@/lib/types";
 import { useGltfScene } from "@/lib/useGltfScene";
 
 type Props = {
@@ -16,19 +15,28 @@ export function ModuleInstance({ instance, selected, onSelect }: Props) {
   const w = instance.parameters.width ?? 600;
   const h = instance.parameters.height ?? 2400;
   const d = instance.parameters.depth ?? 300;
-  const pos = useMemo(() => worldCentreFromInstance(instance), [instance]);
-  // PlayCanvas: G42-/Dachsegmente nutzen `entity.setEulerAngles(rx, ry, rz)` in Grad, Reihenfolge X→Y→Z
-  // (siehe snaphouse_konfigurator.js nextG42 / spawnG42b — nicht `_spawnAt(rx,ry,0)`).
-  const rot = useMemo(
-    () =>
-      new THREE.Euler(
-        degToRad(instance.rotation.x),
-        degToRad(instance.rotation.y),
-        degToRad(instance.rotation.z),
-        "XYZ",
-      ),
-    [instance.rotation.x, instance.rotation.y, instance.rotation.z],
-  );
+  const pose = instance.parameters.playcanvasPose as PlaycanvasPose | undefined;
+
+  const pos = useMemo(() => {
+    if (pose?.positionM) {
+      const p = pose.positionM;
+      return [p.x, p.y, p.z] as [number, number, number];
+    }
+    return worldCentreFromInstance(instance);
+  }, [instance, pose]);
+
+  const rot = useMemo(() => {
+    if (pose?.rotationDeg) {
+      const r = pose.rotationDeg;
+      return new THREE.Euler(degToRad(r.x), degToRad(r.y), degToRad(r.z), "XYZ");
+    }
+    return new THREE.Euler(
+      degToRad(instance.rotation.x),
+      degToRad(instance.rotation.y),
+      degToRad(instance.rotation.z),
+      "XYZ",
+    );
+  }, [instance, pose]);
 
   const url = instance.assetUrl?.match(/\.glb$/i) ? instance.assetUrl : null;
   const { scene: gltfScene, failed, loading } = useGltfScene(url);

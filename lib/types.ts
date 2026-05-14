@@ -6,10 +6,17 @@ export const GRID_MM = 600;
 
 export type Vec3 = { x: number; y: number; z: number };
 
+/** Absolutpose wie PlayCanvas `_spawnAt` / `setEulerAngles` (Metre, Grad). */
+export type PlaycanvasPose = {
+  positionM: Vec3;
+  rotationDeg: Vec3;
+};
+
 export type ModuleParameters = {
   width?: number;
   height?: number;
   depth?: number;
+  playcanvasPose?: PlaycanvasPose;
   [key: string]: unknown;
 };
 
