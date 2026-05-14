@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo } from "react";
+import { useLayoutEffect, useMemo, useRef } from "react";
 import * as THREE from "three";
 import type { ModuleInstance, PlaycanvasPose } from "@/lib/types";
 import { degToRad, mmToMetres, worldCentreFromInstance } from "@/lib/snap";
@@ -86,18 +86,32 @@ export function ModuleInstance({ instance, selected, onSelect }: Props) {
 
   const useGltf = url && gltfScene && !failed && !loading;
 
+  const groupRef = useRef<THREE.Group>(null);
+
+  /**
+   * Transform explizit setzen: Bei `<group>` + `<primitive object={…}>` hat R3F in manchen
+   * Kombinationen die Props `quaternion`/`scale` nicht zuverlässig auf die Gruppe angewendet —
+   * dann bleiben GLBs in „Ruhestellung“ (z. B. Dach liegend), obwohl `playcanvasPose` stimmt.
+   */
+  useLayoutEffect(() => {
+    const g = groupRef.current;
+    if (!g) return;
+    g.position.set(pos[0], pos[1], pos[2]);
+    g.quaternion.copy(quat);
+    const s = useGltf ? gltfScale : boxScale;
+    g.scale.set(s.x, s.y, s.z);
+  }, [pos, quat, useGltf, gltfScale, boxScale]);
+
   return (
     <group
-      position={pos}
-      quaternion={quat}
-      scale={useGltf ? gltfScale : boxScale}
+      ref={groupRef}
       onClick={(e) => {
         e.stopPropagation();
         onSelect(instance.instanceId);
       }}
     >
       {useGltf ? (
-        <primitive object={gltfScene} />
+        <primitive object={gltfScene} dispose={null} />
       ) : (
         <mesh castShadow receiveShadow>
           <boxGeometry args={[1, 1, 1]} />
