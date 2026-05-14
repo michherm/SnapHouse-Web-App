@@ -1,11 +1,15 @@
 "use client";
 
-import { useLayoutEffect, useMemo, useRef } from "react";
+import type { MutableRefObject } from "react";
+import { TransformControls } from "@react-three/drei";
+import { useCallback, useLayoutEffect, useMemo, useRef, useState } from "react";
 import * as THREE from "three";
 import type { ModuleInstance, PlaycanvasPose } from "@/lib/types";
 import { degToRad, mmToMetres, worldCentreFromInstance } from "@/lib/snap";
 import { quaternionFromPlaycanvasEulerDegrees } from "@/lib/playcanvasRotation";
+import { eulerDegXYZFromQuaternion } from "@/lib/orientationFromThree";
 import { useGltfScene } from "@/lib/useGltfScene";
+import { useProjectStore } from "@/lib/projectStore";
 
 type Props = {
   instance: ModuleInstance;
@@ -14,6 +18,10 @@ type Props = {
 };
 
 export function ModuleInstance({ instance, selected, onSelect }: Props) {
+  const transformMode = useProjectStore((s) => s.transformMode);
+  const commitModuleTransform = useProjectStore((s) => s.commitModuleTransform);
+  const [tcDragging, setTcDragging] = useState(false);
+
   const w = instance.parameters.width ?? 600;
   const h = instance.parameters.height ?? 2400;
   const d = instance.parameters.depth ?? 300;
@@ -94,38 +102,62 @@ export function ModuleInstance({ instance, selected, onSelect }: Props) {
    * dann bleiben GLBs in „Ruhestellung“ (z. B. Dach liegend), obwohl `playcanvasPose` stimmt.
    */
   useLayoutEffect(() => {
+    if (tcDragging) return;
     const g = groupRef.current;
     if (!g) return;
     g.position.set(pos[0], pos[1], pos[2]);
     g.quaternion.copy(quat);
     const s = useGltf ? gltfScale : boxScale;
     g.scale.set(s.x, s.y, s.z);
-  }, [pos, quat, useGltf, gltfScale, boxScale]);
+  }, [pos, quat, useGltf, gltfScale, boxScale, tcDragging]);
+
+  const onTcDraggingChanged = useCallback(
+    (ev: { value: boolean }) => {
+      if (!ev.value && groupRef.current) {
+        const g = groupRef.current;
+        const positionM = { x: g.position.x, y: g.position.y, z: g.position.z };
+        const rotationDeg = eulerDegXYZFromQuaternion(g.quaternion);
+        commitModuleTransform(instance.instanceId, { positionM, rotationDeg });
+      }
+      setTcDragging(ev.value);
+    },
+    [instance.instanceId, commitModuleTransform],
+  );
 
   return (
-    <group
-      ref={groupRef}
-      onClick={(e) => {
-        e.stopPropagation();
-        onSelect(instance.instanceId);
-      }}
-    >
-      {useGltf ? (
-        <primitive object={gltfScene} dispose={null} />
-      ) : (
-        <mesh castShadow receiveShadow>
-          <boxGeometry args={[1, 1, 1]} />
-          <meshStandardMaterial
-            color={
-              failed ? "#f97316" : loading ? "#3b82f6" : selected ? "#6ee7b7" : "#9ca3af"
-            }
-            metalness={0.05}
-            roughness={0.75}
-            emissive={loading ? "#1e3a8a" : "#000000"}
-            emissiveIntensity={loading ? 0.35 : 0}
-          />
-        </mesh>
-      )}
-    </group>
+    <>
+      <group
+        ref={groupRef}
+        onClick={(e) => {
+          e.stopPropagation();
+          onSelect(instance.instanceId);
+        }}
+      >
+        {useGltf ? (
+          <primitive object={gltfScene} dispose={null} />
+        ) : (
+          <mesh castShadow receiveShadow>
+            <boxGeometry args={[1, 1, 1]} />
+            <meshStandardMaterial
+              color={
+                failed ? "#f97316" : loading ? "#3b82f6" : selected ? "#6ee7b7" : "#9ca3af"
+              }
+              metalness={0.05}
+              roughness={0.75}
+              emissive={loading ? "#1e3a8a" : "#000000"}
+              emissiveIntensity={loading ? 0.35 : 0}
+            />
+          </mesh>
+        )}
+      </group>
+      {selected ? (
+        <TransformControls
+          object={groupRef as MutableRefObject<THREE.Object3D>}
+          mode={transformMode}
+          size={0.65}
+          onDraggingChanged={onTcDraggingChanged}
+        />
+      ) : null}
+    </>
   );
 }

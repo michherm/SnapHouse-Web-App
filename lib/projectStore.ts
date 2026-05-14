@@ -1,8 +1,13 @@
 import { create } from "zustand";
-import type { ModuleInstance, SnapHouseProject } from "./types";
+import type { ModuleInstance, SnapHouseProject, Vec3 } from "./types";
 import { getModuleDefinition } from "./modules";
 import { emptyProject, newInstanceId, normalizeModule, parseProjectJson } from "./importProject";
-import { snapVec3Mm } from "./snap";
+import {
+  snapVec3Mm,
+  snapMetresXZToGrid,
+  worldCentreFromInstance,
+  gridIndicesFromModuleCentreMetres,
+} from "./snap";
 import type { HouseSettings } from "./houseSettings";
 import { clampHouseToRules } from "./houseSettings";
 import { G42_SEQ_200, G42_SEQ_250, S10_SEQ_250 } from "./playcanvasSequences";
@@ -29,6 +34,17 @@ type Store = {
   spawnPlaycanvasWallChain: (kind: "g42_250" | "s10_250" | "g42_200") => void;
   /** Ersetzt alle Module: GLBs messen wie `_meas`, dann `_rebuildInner` (Satteldach, EG). */
   buildPlaycanvasHouse: () => Promise<void>;
+  /** Gizmo: Verschieben oder Drehen (TransformControls). */
+  transformMode: "translate" | "rotate";
+  setTransformMode: (mode: "translate" | "rotate") => void;
+  /** Nach Gizmo-Zug: `playcanvasPose` + Raster X/Z (Metre) + Raster-Indizes. */
+  commitModuleTransform: (
+    instanceId: string,
+    pose: { positionM: Vec3; rotationDeg: Vec3 },
+    opts?: { snapXZ?: boolean },
+  ) => void;
+  /** Spiegeln wie PlayCanvas Pult: `scale.z *= -1`. */
+  mirrorFlipScaleZSelected: () => void;
   importFromJsonText: (text: string) => void;
   clearAll: () => void;
 };
@@ -59,6 +75,7 @@ export const useProjectStore = create<Store>((set, get) => ({
   selectedInstanceId: null,
   houseBuilding: false,
   houseBuildMessages: [],
+  transformMode: "translate",
 
   setProjectName: (name) =>
     set((s) => ({
@@ -74,6 +91,7 @@ export const useProjectStore = create<Store>((set, get) => ({
     })),
 
   selectInstance: (id) => set({ selectedInstanceId: id }),
+  setTransformMode: (mode) => set({ transformMode: mode }),
   addModule: (moduleId) => {
     const inst = defaultInstance(moduleId);
     if (!inst) return;
@@ -124,7 +142,78 @@ export const useProjectStore = create<Store>((set, get) => ({
         modules: s.project.modules.map((m) => {
           if (m.instanceId !== id) return m;
           const ny = ((m.rotation.y + 90) % 360 + 360) % 360;
+          const pose = m.parameters.playcanvasPose;
+          if (
+            pose?.rotationDeg &&
+            typeof pose.rotationDeg.x === "number" &&
+            typeof pose.rotationDeg.y === "number" &&
+            typeof pose.rotationDeg.z === "number"
+          ) {
+            const ry = ((pose.rotationDeg.y + 90) % 360 + 360) % 360;
+            return normalizeModule({
+              ...m,
+              rotation: { ...m.rotation, y: ny },
+              parameters: {
+                ...m.parameters,
+                playcanvasPose: {
+                  ...pose,
+                  rotationDeg: { ...pose.rotationDeg, y: ry },
+                },
+              },
+            });
+          }
           return { ...m, rotation: { ...m.rotation, y: ny } };
+        }),
+      },
+    }));
+  },
+
+  commitModuleTransform: (instanceId, pose, opts) => {
+    const snapXZ = opts?.snapXZ ?? true;
+    let pm: Vec3 = { ...pose.positionM };
+    if (snapXZ) {
+      pm = {
+        x: snapMetresXZToGrid(pm.x),
+        y: pm.y,
+        z: snapMetresXZToGrid(pm.z),
+      };
+    }
+    set((s) => ({
+      project: {
+        ...s.project,
+        modules: s.project.modules.map((m) => {
+          if (m.instanceId !== instanceId) return m;
+          const w = m.parameters.width ?? 600;
+          const dep = m.parameters.depth ?? 300;
+          const { ix, iz } = gridIndicesFromModuleCentreMetres(pm.x, pm.z, w, dep);
+          const rd = pose.rotationDeg;
+          return normalizeModule({
+            ...m,
+            gridPosition: { x: ix, y: 0, z: iz },
+            position: { x: 0, y: 0, z: 0 },
+            rotation: { x: rd.x, y: rd.y, z: rd.z },
+            parameters: {
+              ...m.parameters,
+              playcanvasPose: {
+                positionM: pm,
+                rotationDeg: { ...rd },
+              },
+            },
+          });
+        }),
+      },
+    }));
+  },
+
+  mirrorFlipScaleZSelected: () => {
+    const id = get().selectedInstanceId;
+    if (!id) return;
+    set((s) => ({
+      project: {
+        ...s.project,
+        modules: s.project.modules.map((m) => {
+          if (m.instanceId !== id) return m;
+          return { ...m, scale: { ...m.scale, z: -m.scale.z } };
         }),
       },
     }));
@@ -143,11 +232,30 @@ export const useProjectStore = create<Store>((set, get) => ({
             y: m.position.y,
             z: m.position.z,
           });
-          return {
+          const updated = {
             ...m,
             gridPosition: { x: ix, y: 0, z: iz },
             position: snapped,
           };
+          const [wx, wy, wz] = worldCentreFromInstance(updated);
+          const pose = m.parameters.playcanvasPose;
+          const rotationDeg: Vec3 =
+            pose?.rotationDeg &&
+            typeof pose.rotationDeg.x === "number" &&
+            typeof pose.rotationDeg.y === "number" &&
+            typeof pose.rotationDeg.z === "number"
+              ? { ...pose.rotationDeg }
+              : { x: m.rotation.x, y: m.rotation.y, z: m.rotation.z };
+          return normalizeModule({
+            ...updated,
+            parameters: {
+              ...m.parameters,
+              playcanvasPose: {
+                positionM: { x: wx, y: wy, z: wz },
+                rotationDeg,
+              },
+            },
+          });
         }),
       },
     }));
@@ -191,6 +299,7 @@ export const useProjectStore = create<Store>((set, get) => ({
         project: { ...project, modules },
         selectedInstanceId: null,
         houseBuildMessages: warnings,
+        transformMode: "translate",
       });
     } finally {
       set({ houseBuilding: false });
@@ -207,6 +316,7 @@ export const useProjectStore = create<Store>((set, get) => ({
       selectedInstanceId: null,
       houseBuildMessages: [],
       houseBuilding: false,
+      transformMode: "translate",
     });
   },
   clearAll: () =>
@@ -215,5 +325,6 @@ export const useProjectStore = create<Store>((set, get) => ({
       selectedInstanceId: null,
       houseBuildMessages: [],
       houseBuilding: false,
+      transformMode: "translate",
     }),
 }));

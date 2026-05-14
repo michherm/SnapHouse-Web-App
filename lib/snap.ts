@@ -70,10 +70,31 @@ export function gridIndicesFromWorldHit(
   return { ix, iz };
 }
 
+/** Raster-Indizes aus Modulmittelpunkt (Metre), passend zu `worldCentreFromInstance` bei position=(0,0,0). */
+export function gridIndicesFromModuleCentreMetres(
+  centreXM: number,
+  centreZM: number,
+  widthMm: number,
+  depthMm: number,
+): { ix: number; iz: number } {
+  const cellM = mmToMetres(GRID_MM);
+  if (cellM <= 0) return { ix: 0, iz: 0 };
+  const ix = Math.round((centreXM - mmToMetres(widthMm) / 2) / cellM);
+  const iz = Math.round((centreZM - mmToMetres(depthMm) / 2) / cellM);
+  return { ix, iz };
+}
+
 export function degToRad(d: number): number {
   return (d * Math.PI) / 180;
 }
 
 export function radToDeg(r: number): number {
   return (r * 180) / Math.PI;
+}
+
+/** Snap world X or Z (metres) to nearest 600-mm grid line. */
+export function snapMetresXZToGrid(coord: number): number {
+  const cellM = mmToMetres(GRID_MM);
+  if (cellM <= 0) return coord;
+  return Math.round(coord / cellM) * cellM;
 }
