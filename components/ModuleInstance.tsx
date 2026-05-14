@@ -18,19 +18,43 @@ export function ModuleInstance({ instance, selected, onSelect }: Props) {
   const h = instance.parameters.height ?? 2400;
   const d = instance.parameters.depth ?? 300;
   const pose = instance.parameters.playcanvasPose as PlaycanvasPose | undefined;
+  const pm = pose?.positionM;
+  const rd = pose?.rotationDeg;
 
   const pos = useMemo(() => {
-    if (pose?.positionM) {
-      const p = pose.positionM;
-      return [p.x, p.y, p.z] as [number, number, number];
+    if (
+      pm &&
+      typeof pm.x === "number" &&
+      typeof pm.y === "number" &&
+      typeof pm.z === "number"
+    ) {
+      return [pm.x, pm.y, pm.z] as [number, number, number];
     }
     return worldCentreFromInstance(instance);
-  }, [instance, pose]);
+  }, [
+    pm?.x,
+    pm?.y,
+    pm?.z,
+    instance.floor,
+    instance.gridPosition.x,
+    instance.gridPosition.y,
+    instance.gridPosition.z,
+    instance.position.x,
+    instance.position.y,
+    instance.position.z,
+    w,
+    h,
+    d,
+  ]);
 
   const quat = useMemo(() => {
-    if (pose?.rotationDeg) {
-      const r = pose.rotationDeg;
-      return quaternionFromPlaycanvasEulerDegrees(r.x, r.y, r.z);
+    if (
+      rd &&
+      typeof rd.x === "number" &&
+      typeof rd.y === "number" &&
+      typeof rd.z === "number"
+    ) {
+      return quaternionFromPlaycanvasEulerDegrees(rd.x, rd.y, rd.z);
     }
     return new THREE.Quaternion().setFromEuler(
       new THREE.Euler(
@@ -40,7 +64,7 @@ export function ModuleInstance({ instance, selected, onSelect }: Props) {
         "XYZ",
       ),
     );
-  }, [instance, pose]);
+  }, [rd?.x, rd?.y, rd?.z, instance.rotation.x, instance.rotation.y, instance.rotation.z]);
 
   const url = instance.assetUrl?.match(/\.glb$/i) ? instance.assetUrl : null;
   const { scene: gltfScene, failed, loading } = useGltfScene(url);
