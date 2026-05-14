@@ -5,6 +5,7 @@ import { Toolbar } from "@/components/Toolbar";
 import { ProjectControls } from "@/components/ProjectControls";
 import { HouseSettingsPanel } from "@/components/HouseSettingsPanel";
 import { PlaycanvasWallChains } from "@/components/PlaycanvasWallChains";
+import { HouseDebugPanel } from "@/components/HouseDebugPanel";
 
 const Scene = dynamic(() => import("@/components/Scene").then((m) => m.Scene), { ssr: false });
 
@@ -32,6 +33,7 @@ export function Configurator() {
         <Toolbar />
         <div style={{ height: 1, background: "#334155", margin: "12px 0" }} />
         <PlaycanvasWallChains />
+        <HouseDebugPanel />
       </aside>
       <main style={{ position: "relative", minHeight: 0 }}>
         <Scene />
